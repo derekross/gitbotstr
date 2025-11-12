@@ -1,0 +1,8 @@
+{
+  "repo_url": "https://gitlab.com/soapbox-pub/shakespeare.git",
+  "nsec": "nsec1yoursecretkeyhere...",
+  "community_relay": "wss://community.shakespeare.diy",
+  "community_id": "9512155132705925",
+  "poll_interval": 60,
+  "repo_type": "gitlab"
+}
