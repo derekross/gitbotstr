@@ -1,8 +1,9 @@
 # Configuration with sensitive keys
 config.json
 
-# State file
+# State files
 gitbotstr_state.json
+showcase_state.json
 
 # Python
 __pycache__/
