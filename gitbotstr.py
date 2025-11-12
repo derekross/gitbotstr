@@ -7,7 +7,7 @@ import json
 import time
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 import requests
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 # Nostr imports
 from nostr_sdk import (
     Keys, Client, NostrSigner, EventBuilder,
-    Tag, Kind, Event, Filter, PublicKey, Timestamp, RelayUrl, SingleLetterTag, Alphabet, Duration
+    Tag, Kind, Event, Filter, PublicKey, Timestamp, RelayUrl, SingleLetterTag, Alphabet
 )
 
 
@@ -336,21 +336,23 @@ class ShowcaseMonitor:
                 .limit(10)
 
             self.logger.info("Querying for featured apps list...")
-            timeout = Duration.from_secs(10)
+            timeout = timedelta(seconds=10)
             events = await self.client.fetch_events(filter_list, timeout)
 
-            if not events:
+            if events.is_empty():
                 self.logger.info("No featured apps list found")
                 return []
 
             # Get the most recent list
-            latest_list = sorted(events, key=lambda e: e.created_at(), reverse=True)[0]
-            self.logger.info(f"Found featured apps list with {len(latest_list.tags())} tags")
+            events_list = events.to_vec()
+            latest_list = sorted(events_list, key=lambda e: e.created_at(), reverse=True)[0]
+            tags_list = latest_list.tags().to_vec()
+            self.logger.info(f"Found featured apps list with {len(tags_list)} tags")
 
             # Extract app coordinates from 'a' tags
             current_featured = set()
             a_tags = []
-            for tag in latest_list.tags():
+            for tag in tags_list:
                 tag_list = tag.as_vec()
                 if len(tag_list) >= 2 and tag_list[0] == 'a':
                     app_coord = tag_list[1]
@@ -388,11 +390,11 @@ class ShowcaseMonitor:
                         .custom_tag(SingleLetterTag.lowercase(Alphabet.D), d_tag) \
                         .limit(1)
 
-                    timeout = Duration.from_secs(10)
+                    timeout = timedelta(seconds=10)
                     app_events = await self.client.fetch_events(filter_app, timeout)
 
-                    if app_events:
-                        app_event = app_events[0]
+                    if not app_events.is_empty():
+                        app_event = app_events.to_vec()[0]
                         app_data = self._parse_app_event(app_event)
                         app_data['coordinate'] = app_coord
                         app_details.append(app_data)
@@ -426,7 +428,7 @@ class ShowcaseMonitor:
             'tags': []
         }
 
-        for tag in event.tags():
+        for tag in event.tags().to_vec():
             tag_list = tag.as_vec()
             if len(tag_list) < 2:
                 continue
@@ -489,12 +491,21 @@ class ShowcaseMonitor:
             message_parts.extend(["", f"🏷️ {tags_str}"])
 
         if app.get('website'):
-            message_parts.extend(["", f"🔗 {app['website']}"])
+            website = app['website']
+            if not website.startswith('http'):
+                website = f"https://{website}"
+            message_parts.extend(["", f"🔗 {website}"])
 
         if app.get('repository'):
-            message_parts.append(f"📦 Repository: {app['repository']}")
-
-        message_parts.extend(["", "✨ Check it out at: https://soapbox.pub/showcase/"])
+            import urllib.parse
+            repo_url = app['repository']
+            encoded_repo = urllib.parse.quote(repo_url, safe='')
+            shakespeare_link = f"https://shakespeare.diy/clone?url={encoded_repo}"
+            message_parts.extend([
+                "",
+                f"📦 Repository: {repo_url}",
+                f"✏️ Edit: {shakespeare_link}"
+            ])
 
         return "\n".join(message_parts)
 
