@@ -345,7 +345,7 @@ class ShowcaseMonitor:
 
             # Get the most recent list
             events_list = events.to_vec()
-            latest_list = sorted(events_list, key=lambda e: e.created_at(), reverse=True)[0]
+            latest_list = sorted(events_list, key=lambda e: e.created_at().as_secs(), reverse=True)[0]
             tags_list = latest_list.tags().to_vec()
             self.logger.info(f"Found featured apps list with {len(tags_list)} tags")
 
